@@ -31,6 +31,8 @@ const createBot = () => {
       console.log(`Express server is listening on ${port}`);
     });
 
+    module.exports = app;
+
     return bot;
   }
 
