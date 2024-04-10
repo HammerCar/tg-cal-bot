@@ -12,33 +12,28 @@ const token = process.env.TG_TOKEN || "";
 
 const createBot = () => {
   if (process.env.NODE_ENV === "production") {
-    const bot = new TelegramBot(token);
-
-    const app = express();
-
-    app.use(express.json());
-
-    // We are receiving updates at the route below!
-    app.post(`/bot${token}`, (req, res) => {
-      bot.processUpdate(req.body);
-      res.sendStatus(200);
-    });
-
-    // Start Express Server
-    const port = process.env.PORT || 3000;
-    app.listen(port, () => {
-      console.log(`Express server is listening on ${port}`);
-    });
-
-    module.exports = app;
-
-    return bot;
+    return new TelegramBot(token);
   }
 
   return new TelegramBot(token, { polling: true });
 };
 
 const bot = createBot();
+const app = express();
+
+app.use(express.json());
+
+app.post(`/bot${token}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
+
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`Express server is listening on ${port}`);
+});
+
+module.exports = app;
 
 const parseDateTime = (text: string) => {
   const [date, time] = text.split(" ");
