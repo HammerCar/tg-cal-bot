@@ -13,7 +13,6 @@ const token = process.env.TG_TOKEN || "";
 const createBot = () => {
   if (process.env.NODE_ENV === "production") {
     const bot = new TelegramBot(token);
-    bot.setWebHook(`${process.env.BOT_URL}/bot${token}`);
 
     const app = express();
 
