@@ -30,6 +30,8 @@ const parseDateTime = (text: string) => {
 };
 
 bot.onText(/\/start/, async (msg, match) => {
+  console.log("Starting chat", msg);
+
   if (!msg.from) {
     console.warn("Message has no sender");
     return;
