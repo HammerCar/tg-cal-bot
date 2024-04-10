@@ -41,15 +41,21 @@ bot.onText(/\/start/, async (msg, match) => {
   const name = `${msg.from.first_name} ${msg.from.last_name}`;
   const chatId = msg.chat.id.toString();
 
+  console.log("Adding user", userId, name, chatId);
+
   await db
     .insert(users)
     .values({ id: userId, name, chatId })
     .onConflictDoNothing();
 
-  bot.sendMessage(
+  console.log("Sending welcome message");
+
+  await bot.sendMessage(
     msg.chat.id,
     "Thanks for using CalBot. Send /setemail to set your email address."
   );
+
+  console.log("Done");
 });
 
 bot.onText(/\/setemail/, async (msg, match) => {
