@@ -43,10 +43,15 @@ bot.onText(/\/start/, async (msg, match) => {
 
   console.log("Adding user", userId, name, chatId);
 
-  await db
-    .insert(users)
-    .values({ id: userId, name, chatId })
-    .onConflictDoNothing();
+  try {
+    await db
+      .insert(users)
+      .values({ id: userId, name, chatId })
+      .onConflictDoNothing();
+  } catch (error) {
+    console.error("Failed to add user", error);
+    throw error;
+  }
 
   console.log("Sending welcome message");
 
