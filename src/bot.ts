@@ -397,5 +397,6 @@ END:VCALENDAR`,
 };
 
 export const processUpdate = (update: any) => {
+  console.log("Processing update", update);
   bot.processUpdate(update);
 };
