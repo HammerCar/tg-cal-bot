@@ -1,7 +1,7 @@
 import { createId } from "@paralleldrive/cuid2";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import "dotenv/config";
 import { and, eq } from "drizzle-orm";
-import express from "express";
 import TelegramBot from "node-telegram-bot-api";
 import { Resend } from "resend";
 import db from "./db";
@@ -19,21 +19,14 @@ const createBot = () => {
 };
 
 const bot = createBot();
-const app = express();
 
-app.use(express.json());
-
-app.post(`/bot${token}`, (req, res) => {
-  bot.processUpdate(req.body);
-  res.sendStatus(200);
-});
-
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Express server is listening on ${port}`);
-});
-
-module.exports = app;
+export default function handler(
+  request: VercelRequest,
+  response: VercelResponse
+) {
+  bot.processUpdate(request.body);
+  response.send("Success");
+}
 
 const parseDateTime = (text: string) => {
   const [date, time] = text.split(" ");
