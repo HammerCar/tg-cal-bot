@@ -1,5 +1,4 @@
 import { createId } from "@paralleldrive/cuid2";
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import "dotenv/config";
 import { and, eq } from "drizzle-orm";
 import TelegramBot from "node-telegram-bot-api";
@@ -10,23 +9,7 @@ import { eventAnwesrs, events, users } from "./db/schema";
 const resend = new Resend(process.env.RESEND_KEY);
 const token = process.env.TG_TOKEN || "";
 
-const createBot = () => {
-  if (process.env.NODE_ENV === "production") {
-    return new TelegramBot(token);
-  }
-
-  return new TelegramBot(token, { polling: true });
-};
-
-const bot = createBot();
-
-export default function handler(
-  request: VercelRequest,
-  response: VercelResponse
-) {
-  bot.processUpdate(request.body);
-  response.send("Success");
-}
+const bot = new TelegramBot(token);
 
 const parseDateTime = (text: string) => {
   const [date, time] = text.split(" ");
@@ -411,4 +394,8 @@ END:VCALENDAR`,
       },
     ],
   });
+};
+
+export const processUpdate = (update: any) => {
+  bot.processUpdate(update);
 };
