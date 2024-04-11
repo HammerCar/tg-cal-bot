@@ -29,7 +29,25 @@ const parseDateTime = (text: string) => {
   );
 };
 
-bot.onText(/\/start/, async (msg, match) => {
+const listeners: {
+  regex: RegExp;
+  fn: (msg: TelegramBot.Message) => Promise<any>;
+}[] = [];
+const addTextListener = (
+  regex: RegExp,
+  fn: (msg: TelegramBot.Message) => Promise<any>
+) => {
+  listeners.push({ regex, fn });
+};
+const callListener = async (msg: TelegramBot.Message) => {
+  for (const listener of listeners) {
+    if (msg.text && listener.regex.test(msg.text)) {
+      await listener.fn(msg);
+    }
+  }
+};
+
+addTextListener(/\/start/, async (msg) => {
   console.log("Starting chat", msg);
 
   if (!msg.from) {
@@ -63,7 +81,7 @@ bot.onText(/\/start/, async (msg, match) => {
   console.log("Done");
 });
 
-bot.onText(/\/setemail/, async (msg, match) => {
+addTextListener(/\/setemail/, async (msg) => {
   if (!msg.from) {
     console.warn("Message has no sender");
     return;
@@ -82,7 +100,7 @@ bot.onText(/\/setemail/, async (msg, match) => {
   );
 });
 
-bot.onText(/\/createevent/, async (msg, match) => {
+addTextListener(/\/createevent/, async (msg) => {
   if (!msg.from) {
     console.warn("Message has no sender");
     return;
@@ -98,7 +116,7 @@ bot.onText(/\/createevent/, async (msg, match) => {
   bot.sendMessage(msg.chat.id, "Give a name for the event");
 });
 
-bot.onText(/^[^/]/, async (msg, match) => {
+addTextListener(/^[^/]/, async (msg) => {
   if (!msg.from) {
     console.warn("Message has no sender");
     return;
@@ -255,7 +273,7 @@ bot.onText(/^[^/]/, async (msg, match) => {
   }
 });
 
-bot.on("poll_answer", async (msg) => {
+const onPollAnwser = async (msg: TelegramBot.PollAnswer) => {
   const { poll_id, user, option_ids } = msg;
 
   console.log(poll_id, user, option_ids);
@@ -315,7 +333,7 @@ bot.on("poll_answer", async (msg) => {
       cancelCalendarInvite(event.id, event.name, event.start, event.end, email);
     }
   }
-});
+};
 
 const sendCalendarInvite = async (
   eventId: string,
@@ -409,7 +427,13 @@ END:VCALENDAR`,
   });
 };
 
-export const processUpdate = (update: any) => {
+export const processUpdate = async (update: TelegramBot.Update) => {
   console.log("Processing update", update);
-  bot.processUpdate(update);
+
+  if (update.message) {
+    await callListener(update.message);
+  }
+  if (update.poll_answer) {
+    await onPollAnwser(update.poll_answer);
+  }
 };

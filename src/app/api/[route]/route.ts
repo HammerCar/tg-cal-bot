@@ -1,4 +1,6 @@
 import { processUpdate } from "@/bot";
+import db from "@/db";
+import { users } from "@/db/schema";
 import { type NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -8,7 +10,13 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  processUpdate(body);
+  await processUpdate(body);
 
   return new Response("Success");
+}
+
+export async function GET(request: NextRequest) {
+  const data = await db.select().from(users);
+
+  return new Response("Success " + data.length);
 }
