@@ -2,19 +2,9 @@ import db from "@/db";
 import { events, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { FaCheckCircle } from "react-icons/fa";
-import z from "zod";
 import EmailForm, { ClosePageButton } from "./EmailForm";
 import { sendEventInvite, verifyTgAuthData } from "./actions";
-
-export const tgAuthData = z.object({
-  id: z.string(),
-  first_name: z.string(),
-  last_name: z.string(),
-  username: z.string(),
-  photo_url: z.string().url(),
-  auth_date: z.string(),
-  hash: z.string(),
-});
+import tgAuthData from "./tgAuthData";
 
 export default async function Event({
   params,

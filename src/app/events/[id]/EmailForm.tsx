@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { FaCheckCircle } from "react-icons/fa";
 import { saveAndSendEventInvite } from "./actions";
 
@@ -10,6 +10,14 @@ interface EmailFormProps {
 }
 
 export default function EmailForm(props: EmailFormProps) {
+  return (
+    <Suspense>
+      <EmailFormInner {...props} />
+    </Suspense>
+  );
+}
+
+function EmailFormInner(props: EmailFormProps) {
   const { eventId } = props;
 
   const [email, setEmail] = useState("");

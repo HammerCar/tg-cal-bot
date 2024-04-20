@@ -6,7 +6,7 @@ import { sendCalendarInvite } from "@/email";
 import crypto from "crypto";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { tgAuthData } from "./page";
+import tgAuthData from "./tgAuthData";
 
 type TgAuthData = z.infer<typeof tgAuthData>;
 

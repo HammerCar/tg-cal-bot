@@ -2,7 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import Script from "next/script";
-import React from "react";
+import React, { Suspense } from "react";
 import z from "zod";
 import { createEvent } from "./actions";
 
@@ -19,6 +19,14 @@ interface FormProps extends React.PropsWithChildren<{}> {
 }
 
 export default function Form(props: FormProps) {
+  return (
+    <Suspense>
+      <FormInner {...props} />
+    </Suspense>
+  );
+}
+
+function FormInner(props: FormProps) {
   const { className, children } = props;
 
   const params = useSearchParams();

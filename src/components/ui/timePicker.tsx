@@ -9,7 +9,7 @@ import { Label } from "./label";
 
 interface TimePickerProps {
   date?: Date;
-  setDate?: (date: Date | undefined) => void;
+  setDate?: (date?: Date) => void;
 }
 
 export default function TimePicker({ date, setDate }: TimePickerProps) {
@@ -17,7 +17,7 @@ export default function TimePicker({ date, setDate }: TimePickerProps) {
   const hourRef = React.useRef<HTMLInputElement>(null);
   const secondRef = React.useRef<HTMLInputElement>(null);
 
-  const onDateChange = (date: Date) => {
+  const onDateChange = (date?: Date) => {
     setDate?.(date);
   };
 
