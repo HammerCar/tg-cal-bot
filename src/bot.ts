@@ -1,12 +1,12 @@
 import { createId } from "@paralleldrive/cuid2";
+import crypto from "crypto";
 import "dotenv/config";
-import { and, eq } from "drizzle-orm";
+import { and, eq, gt, like, or } from "drizzle-orm";
 import TelegramBot from "node-telegram-bot-api";
-import { Resend } from "resend";
 import db from "./db";
-import { eventAnwesrs, events, users } from "./db/schema";
+import { eventAnwsers, events, users } from "./db/schema";
+import { cancelCalendarInvite, sendCalendarInvite } from "./email";
 
-const resend = new Resend(process.env.RESEND_KEY);
 const token = process.env.TG_TOKEN || "";
 
 const bot = new TelegramBot(token);
@@ -57,15 +57,11 @@ addTextListener(/\/start/, async (msg) => {
 
   const userId = msg.from.id.toString();
   const name = `${msg.from.first_name} ${msg.from.last_name}`;
-  const chatId = msg.chat.id.toString();
 
-  console.log("Adding user", userId, name, chatId);
+  console.log("Adding user", userId, name);
 
   try {
-    await db
-      .insert(users)
-      .values({ id: userId, name, chatId })
-      .onConflictDoNothing();
+    await db.insert(users).values({ id: userId, name }).onConflictDoNothing();
   } catch (error) {
     console.error("Failed to add user", error);
     throw error;
@@ -114,6 +110,28 @@ addTextListener(/\/createevent/, async (msg) => {
     .where(eq(users.id, userId));
 
   bot.sendMessage(msg.chat.id, "Give a name for the event");
+});
+
+addTextListener(/\/test/, async (msg) => {
+  if (!msg.from) {
+    console.warn("Message has no sender");
+    return;
+  }
+
+  bot.sendMessage(msg.chat.id, "test", {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: "WebApp",
+            web_app: {
+              url: process.env.WEBAPP_URL!,
+            },
+          },
+        ],
+      ],
+    },
+  });
 });
 
 addTextListener(/^[^/]/, async (msg) => {
@@ -304,14 +322,14 @@ const onPollAnwser = async (msg: TelegramBot.PollAnswer) => {
 
   if (option_ids.length > 0) {
     await db
-      .insert(eventAnwesrs)
+      .insert(eventAnwsers)
       .values({
         eventId: event.id,
         userId: user.id.toString(),
         joining: option_ids.includes(0),
       })
       .onConflictDoUpdate({
-        target: [eventAnwesrs.eventId, eventAnwesrs.userId],
+        target: [eventAnwsers.eventId, eventAnwsers.userId],
         set: { joining: option_ids.includes(0) },
       });
 
@@ -321,11 +339,11 @@ const onPollAnwser = async (msg: TelegramBot.PollAnswer) => {
     }
   } else {
     await db
-      .delete(eventAnwesrs)
+      .delete(eventAnwsers)
       .where(
         and(
-          eq(eventAnwesrs.eventId, event.id),
-          eq(eventAnwesrs.userId, user.id.toString())
+          eq(eventAnwsers.eventId, event.id),
+          eq(eventAnwsers.userId, user.id.toString())
         )
       );
 
@@ -335,96 +353,76 @@ const onPollAnwser = async (msg: TelegramBot.PollAnswer) => {
   }
 };
 
-const sendCalendarInvite = async (
-  eventId: string,
-  eventName: string,
-  eventStart: Date,
-  eventEnd: Date,
-  email: string
-) => {
-  console.log("Sending calendar invite to", email);
-  await resend.emails.send({
-    from: process.env.EMAIL_SEND_ADDRESS!,
-    to: email,
-    subject: `Invite for ${eventName}`,
-    html: `<p>Calendar invite for event ${eventName} starting ${eventStart.toLocaleString(
-      "fi-FI"
-    )} and ending ${eventEnd.toLocaleString("fi-FI")}</p>`,
-    attachments: [
-      {
-        filename: "invite.ics",
-        content: `BEGIN:VCALENDAR
-VERSION:2.0
-CALSCALE:GREGORIAN
-METHOD:REQUEST
-BEGIN:VEVENT
-UID:${eventId}@${process.env.EMAIL_DOMAIN}
-DTSTAMP:${new Date()
-          .toISOString()
-          .replace(/[-:]/g, "")
-          .replace(/\.\d\d\d/g, "")}Z
-DTSTART:${eventStart
-          .toISOString()
-          .replace(/[-:]/g, "")
-          .replace(/\.\d\d\d/g, "")}Z
-DTEND:${eventEnd
-          .toISOString()
-          .replace(/[-:]/g, "")
-          .replace(/\.\d\d\d/g, "")}Z
-SUMMARY:${eventName}
-ORGANIZER;CN="CalBot":MAILTO:calendar-invite@${process.env.EMAIL_DOMAIN}
-ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;CN=${email};X-NUM-GUESTS=0:mailto:${email}
-STATUS:CONFIRMED
-END:VEVENT
-END:VCALENDAR`,
-      },
-    ],
-  });
-};
+const onInlineQuery = async (msg: TelegramBot.InlineQuery) => {
+  const userId = msg.from.id.toString();
+  const query = msg.query;
 
-const cancelCalendarInvite = async (
-  eventId: string,
-  eventName: string,
-  eventStart: Date,
-  eventEnd: Date,
-  email: string
-) => {
-  console.log("Cancelling calendar invite for", email);
-  await resend.emails.send({
-    from: process.env.EMAIL_SEND_ADDRESS!,
-    to: email,
-    subject: `Cancel invite for ${eventName}`,
-    html: `<p>Cancellation of calendar invite for event ${eventName}</p>`,
-    attachments: [
+  const userEvents = await db
+    .select({
+      id: events.id,
+      name: events.name,
+      start: events.start,
+      end: events.end,
+    })
+    .from(events)
+    .where(
+      and(
+        eq(events.ownerId, userId),
+        gt(events.start, new Date()),
+        or(like(events.name, `%${query}%`), eq(events.id, query))
+      )
+    );
+
+  const hash = crypto
+    .createHmac("sha256", token)
+    .update(userId)
+    .digest("base64");
+
+  try {
+    await bot.answerInlineQuery(
+      msg.id,
+      userEvents.map((event) => ({
+        type: "article",
+        id: event.id,
+        title: event.name,
+        input_message_content: {
+          message_text: `Event ${
+            event.name
+          } starting ${event.start?.toLocaleString(
+            "fi-FI"
+          )} and ending ${event.end?.toLocaleString("fi-FI")}`,
+        },
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "Add to calendar",
+                //url: `${process.env.WEBAPP_URL}events/${event.id}`,
+                login_url: {
+                  url: `${process.env.WEBAPP_URL}events/${event.id}`,
+                  request_write_access: true,
+                },
+              },
+            ],
+          ],
+        },
+      })),
       {
-        filename: "invite.ics",
-        content: `BEGIN:VCALENDAR
-VERSION:2.0
-CALSCALE:GREGORIAN
-METHOD:CANCEL
-BEGIN:VEVENT
-UID:${eventId}@${process.env.EMAIL_DOMAIN}
-DTSTAMP:${new Date()
-          .toISOString()
-          .replace(/[-:]/g, "")
-          .replace(/\.\d\d\d/g, "")}Z
-DTSTART:${eventStart
-          .toISOString()
-          .replace(/[-:]/g, "")
-          .replace(/\.\d\d\d/g, "")}Z
-DTEND:${eventEnd
-          .toISOString()
-          .replace(/[-:]/g, "")
-          .replace(/\.\d\d\d/g, "")}Z
-SUMMARY:${eventName}
-ORGANIZER;CN="CalBot":MAILTO:calendar-invite@${process.env.EMAIL_DOMAIN}
-ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;CN=${email};X-NUM-GUESTS=0:mailto:${email}
-STATUS:CANCELLED
-END:VEVENT
-END:VCALENDAR`,
-      },
-    ],
-  });
+        button: JSON.stringify({
+          text: "Create event",
+          web_app: {
+            url: `${
+              process.env.WEBAPP_URL
+            }/events/create?userId=${encodeURIComponent(
+              userId
+            )}&hash=${encodeURIComponent(hash)}`,
+          },
+        }),
+      } as any
+    );
+  } catch (error) {
+    console.log("Failed to answer inline query");
+  }
 };
 
 export const processUpdate = async (update: TelegramBot.Update) => {
@@ -436,4 +434,9 @@ export const processUpdate = async (update: TelegramBot.Update) => {
   if (update.poll_answer) {
     await onPollAnwser(update.poll_answer);
   }
+  if (update.inline_query) {
+    await onInlineQuery(update.inline_query);
+  }
 };
+
+export default bot;

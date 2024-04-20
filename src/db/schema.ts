@@ -8,7 +8,6 @@ import {
 export const users = sqliteTable("users", {
   id: text("telegram_id").primaryKey(),
   name: text("name").notNull(),
-  chatId: text("chat_id").notNull(),
   chatState: text("chat_state"),
   email: text("email"),
 });
@@ -22,7 +21,7 @@ export const events = sqliteTable("events", {
   pollId: text("poll_id"),
 });
 
-export const eventAnwesrs = sqliteTable(
+export const eventAnwsers = sqliteTable(
   "event_answers",
   {
     eventId: text("event_id").notNull(),
