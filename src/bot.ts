@@ -421,7 +421,7 @@ const onInlineQuery = async (msg: TelegramBot.InlineQuery) => {
       } as any
     );
   } catch (error) {
-    console.log("Failed to answer inline query");
+    console.error("Failed to answer inline query", error);
   }
 };
 
